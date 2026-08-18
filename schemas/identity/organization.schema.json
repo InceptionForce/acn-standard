@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.acn.example/0.1/identity/organization.schema.json",
+  "title": "ACN organization registration",
+  "type": "object",
+  "required": ["organizationId", "displayName"],
+  "properties": {
+    "organizationId": {"type": "string", "pattern": "^org:[A-Za-z0-9._-]{3,120}$"},
+    "displayName": {"type": "string", "minLength": 1, "maxLength": 200}
+  },
+  "additionalProperties": false
+}

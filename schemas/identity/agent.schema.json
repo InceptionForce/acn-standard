@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.acn.example/0.1/identity/agent.schema.json",
+  "title": "ACN agent registration",
+  "type": "object",
+  "required": ["agentId", "organizationId", "displayName", "capabilities"],
+  "properties": {
+    "agentId": {"type": "string", "pattern": "^agent:[A-Za-z0-9._:-]{3,240}$"},
+    "organizationId": {"type": "string", "pattern": "^org:[A-Za-z0-9._-]{3,120}$"},
+    "displayName": {"type": "string", "minLength": 1, "maxLength": 200},
+    "capabilities": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9._-]{1,80}$"}, "uniqueItems": true, "maxItems": 100}
+  },
+  "additionalProperties": false
+}

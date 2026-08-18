@@ -1,0 +1,11 @@
+{
+  "specVersion": "0.1", "messageId": "msg_counterbad1", "transactionId": "txn_purchase0001",
+  "documentType": "quotation_counteroffer", "sender": "agent:company-a:procurement",
+  "recipient": "agent:company-b:sales", "createdAt": "2026-08-15T11:00:00Z",
+  "expiresAt": "2026-08-16T11:00:00Z", "idempotencyKey": "bad-counter",
+  "inReplyTo": "msg_quote00001",
+  "document": {"quotationMessageId": "msg_quote00001", "currency": "GHS",
+    "validUntil": "2026-08-16T09:00:00Z",
+    "lines": [{"rfqLineId": "line-1", "quantity": "500", "unit": "sheet", "unitPrice": "80.00", "lineTotal": "40000.00"}],
+    "total": "1.00"}
+}

@@ -1,0 +1,25 @@
+{
+  "specVersion": "0.1",
+  "messageId": "msg_intentapproved01",
+  "transactionId": "txn_purchase0001",
+  "documentType": "payment_intent",
+  "sender": "agent:company-a:procurement",
+  "recipient": "agent:company-b:sales",
+  "createdAt": "2026-08-18T16:20:00Z",
+  "expiresAt": "2026-08-19T16:20:00Z",
+  "idempotencyKey": "payment-intent-approved-0001",
+  "inReplyTo": "msg_invoice001",
+  "extensions": {
+    "acn.finance": {
+      "paymentRequestId": "payment-request:2f9c41a7b8d4"
+    }
+  },
+  "document": {
+    "invoiceMessageId": "msg_invoice001",
+    "currency": "GHS",
+    "amount": "42500.00",
+    "intentReference": "PAYINT-2026-0001",
+    "paymentMethod": "bank_transfer",
+    "provider": "example-provider"
+  }
+}

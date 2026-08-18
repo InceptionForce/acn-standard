@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "acn-standard"
+# Single-sourced from acn_standard.__version__ so a release cannot ship a
+# package whose metadata and library disagree about what it is.
+dynamic = ["version"]
+description = "Reference contracts and conformance tools for Agent Commerce Network"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+dependencies = ["cryptography>=44,<46"]
+
+[project.scripts]
+acn-conformance = "acn_standard.cli:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "acn_standard.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

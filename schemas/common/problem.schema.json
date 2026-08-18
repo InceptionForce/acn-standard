@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.acn.example/0.1/common/problem.schema.json",
+  "title": "ACN problem response",
+  "type": "object",
+  "required": ["type", "title", "status", "code", "detail", "requestId", "specVersion"],
+  "properties": {
+    "type": {"type": "string", "pattern": "^urn:acn:problem:[a-z0-9._-]+$"},
+    "title": {"type": "string", "minLength": 1, "maxLength": 200},
+    "status": {"type": "integer", "minimum": 400, "maximum": 599},
+    "code": {"type": "string", "pattern": "^acn\\.[a-z0-9._-]+$"},
+    "detail": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "requestId": {"type": "string", "minLength": 8, "maxLength": 128},
+    "specVersion": {"const": "0.1"},
+    "supportedVersions": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+  },
+  "additionalProperties": false
+}

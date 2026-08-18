@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://schemas.acn.example/0.1/procurement/quotation-acceptance.schema.json","title":"ACN quotation acceptance","type":"object","required":["quotationMessageId"],"properties":{"quotationMessageId":{"type":"string","pattern":"^msg_[A-Za-z0-9_-]{8,128}$"}},"additionalProperties":false}

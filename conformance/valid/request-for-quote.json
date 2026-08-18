@@ -1,0 +1,26 @@
+{
+  "specVersion": "0.1",
+  "messageId": "msg_rfq000001",
+  "transactionId": "txn_purchase0001",
+  "documentType": "request_for_quote",
+  "sender": "agent:company-a:procurement",
+  "recipient": "agent:company-b:sales",
+  "createdAt": "2026-08-15T10:00:00Z",
+  "expiresAt": "2026-08-16T10:00:00Z",
+  "idempotencyKey": "company-a-rfq-1",
+  "document": {
+    "currency": "GHS",
+    "deliveryLocation": "Accra, GH",
+    "responseDeadline": "2026-08-15T18:00:00Z",
+    "items": [
+      {
+        "lineId": "line-1",
+        "sku": "PPGL-0.45-BLUE",
+        "description": "Blue 0.45mm PPGL roofing sheets",
+        "quantity": "500",
+        "unit": "sheet",
+        "specifications": {"colour": "blue", "thicknessMm": "0.45"}
+      }
+    ]
+  }
+}
