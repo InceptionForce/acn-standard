@@ -1,0 +1,175 @@
+name: Python SDK
+
+# The acn-standard package under py/. Scoped by path so a change to the npm
+# SDK does not re-run this, and vice versa — the two are published separately
+# and their pipelines should be able to fail separately.
+
+on:
+  push:
+    branches: ["main", "dev"]
+    paths:
+      - "py/**"
+      - "pyproject.toml"
+      - ".github/workflows/python-ci.yml"
+  pull_request:
+    paths:
+      - "py/**"
+      - "pyproject.toml"
+      - ".github/workflows/python-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The package declares requires-python >=3.11, so it has to work on
+        # the oldest version it claims as well as the newest.
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: pip install -e . black
+
+      - name: Formatting
+        run: black --check py/src py/tests py/tools
+
+      - name: Test suite
+        run: python -m unittest discover -s py/tests -v
+
+      - name: Conformance corpus and schemas are valid JSON
+        run: |
+          find py/conformance py/schemas -name '*.json' \
+            -exec python -m json.tool '{}' /dev/null ';'
+
+      - name: The CLI a consumer gets is runnable
+        run: |
+          acn-conformance suite py/conformance/valid
+          acn-conformance validate py/conformance/valid/request-for-quote.json
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.13", cache: pip}
+      - run: pip install -e . build twine
+
+      # Built into its own directory: build_release.py and generate_sbom.py
+      # write the specification archive and the SBOM into py/dist, and whatever
+      # sits in the published directory would be uploaded to PyPI as if it were
+      # a distribution.
+      - name: Build the distribution
+        run: python -m build --outdir dist-pypi
+
+      - name: The distribution is well formed
+        run: twine check dist-pypi/*
+
+      - name: The wheel installs nothing but the library
+        run: |
+          python - <<'PY'
+          import glob, zipfile
+          wheel = glob.glob("dist-pypi/*.whl")[0]
+          top = {name.split("/")[0] for name in zipfile.ZipFile(wheel).namelist()}
+          stray = {item for item in top if not item.endswith(".dist-info")} - {"acn_standard"}
+          assert not stray, f"the wheel would install {stray} into site-packages"
+          print("wheel installs only acn_standard")
+          PY
+
+      - name: It installs and works for someone who is not us
+        run: |
+          python -m venv /tmp/cleanroom
+          /tmp/cleanroom/bin/pip install --quiet dist-pypi/*.whl
+          cd /tmp && /tmp/cleanroom/bin/python -c "
+          import acn_standard, importlib.metadata as metadata
+          assert acn_standard.__version__ == metadata.version('acn-standard')
+          from acn_standard import build_envelope, sign_envelope, validate_envelope
+          print('installed', acn_standard.__version__, 'and the public API imports')
+          "
+          /tmp/cleanroom/bin/acn-conformance --help > /dev/null
+
+      - name: Specification archive and SBOM
+        run: |
+          python py/tools/build_release.py
+          python py/tools/generate_sbom.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-distribution-${{ github.sha }}
+          path: |
+            dist-pypi/*
+            py/dist/*
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.13", cache: pip}
+      # pip-audit reports on everything installed, which includes the build
+      # toolchain rather than only what a consumer of this package would get.
+      # Keeping pip current is worth doing anyway, and it stops an advisory
+      # against pip itself failing a library's build.
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e . pip-audit
+      # --skip-editable: this project is installed editable and is not on PyPI
+      # yet, so auditing it is a lookup that cannot succeed and only adds a
+      # skip line to the report.
+      - run: pip-audit --skip-editable
+
+  publish:
+    # Only from main, only after the checks above, and only when the version in
+    # acn_standard.__version__ is one PyPI does not already have. PyPI versions
+    # are immutable: re-uploading the same one is a hard error, so without that
+    # check every merge after a release would fail on a step with nothing left
+    # to do.
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [test, package, audit]
+    runs-on: ubuntu-latest
+    environment: pypi-release
+    permissions:
+      contents: read
+      # Trusted Publishing: PyPI verifies this workflow's identity directly, so
+      # there is no long-lived upload token to leak or rotate.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.13", cache: pip}
+      - run: pip install -e . build
+
+      - name: Is this version already published?
+        id: check
+        run: |
+          version=$(python -c "import acn_standard; print(acn_standard.__version__)")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            "https://pypi.org/pypi/acn-standard/$version/json")
+          if [ "$code" = "200" ]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "acn-standard $version is already on PyPI; nothing to do"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "acn-standard $version is new"
+          fi
+
+      - name: Build the distribution
+        if: steps.check.outputs.published == 'false'
+        run: python -m build --outdir dist-pypi
+
+      - name: Publish to PyPI
+        if: steps.check.outputs.published == 'false'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist-pypi

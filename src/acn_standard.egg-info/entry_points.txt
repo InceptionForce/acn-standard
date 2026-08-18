@@ -1,2 +1,0 @@
-[console_scripts]
-acn-conformance = acn_standard.cli:main

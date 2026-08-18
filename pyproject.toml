@@ -10,7 +10,11 @@ dynamic = ["version"]
 description = "Reference contracts and conformance tools for Agent Commerce Network"
 requires-python = ">=3.11"
 license = "Apache-2.0"
-dependencies = ["cryptography>=44,<46"]
+# 50.0.0 is the floor that clears PYSEC-2026-3552; the earlier advisories in
+# this chain are fixed at 46.0.5 through 49.0.0, so anything below 50 leaves at
+# least one open. It is also what workforce already pins, so the monorepo and
+# the published package agree.
+dependencies = ["cryptography>=50,<51"]
 
 [project.scripts]
 acn-conformance = "acn_standard.cli:main"
@@ -18,5 +22,10 @@ acn-conformance = "acn_standard.cli:main"
 [tool.setuptools.dynamic]
 version = {attr = "acn_standard.__version__"}
 
+# The Python project lives under py/ now that the npm SDK shares this
+# repository, so setuptools has to be told where the package actually is.
+[tool.setuptools]
+package-dir = {"" = "py/src"}
+
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["py/src"]

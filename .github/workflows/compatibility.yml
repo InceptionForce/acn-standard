@@ -1,0 +1,129 @@
+name: Cross-language compatibility
+
+# The one check that belongs to neither SDK, which is exactly why it needs its
+# own workflow: a signature made by one has to verify under the other, and once
+# the two are published separately nothing structural keeps them agreeing.
+#
+# The bug this exists for was real. The TypeScript SDK sorted object keys with
+# localeCompare, which is case-insensitive and locale-dependent, so envelopes
+# with uppercase-initial keys canonicalised differently from Python and their
+# signatures did not verify. Two of five cases diverged, and both SDKs' own
+# test suites passed throughout.
+
+on:
+  push:
+    branches: ["main", "dev"]
+    paths:
+      - "py/**"
+      - "npm/**"
+      - "pyproject.toml"
+      - ".github/workflows/compatibility.yml"
+  pull_request:
+    paths:
+      - "py/**"
+      - "npm/**"
+      - "pyproject.toml"
+      - ".github/workflows/compatibility.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compatibility-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  canonicalisation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.13", cache: pip}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: npm/package-lock.json
+
+      - run: pip install -e .
+      - run: npm ci
+        working-directory: npm
+      - run: npm run build
+        working-directory: npm
+
+      - name: Canonicalise the corpus with Python
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          from acn_standard.security import canonical_envelope
+          canonical = {
+              path.name: canonical_envelope(json.loads(path.read_text())).decode()
+              for path in sorted(pathlib.Path("py/conformance/valid").glob("*.json"))
+          }
+          assert canonical, "the conformance corpus is empty"
+          pathlib.Path("/tmp/python-canonical.json").write_text(json.dumps(canonical))
+          print(f"canonicalised {len(canonical)} envelopes with Python")
+          PY
+
+      - name: The TypeScript SDK produces the same bytes
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          const { canonicalEnvelope } = await import('./npm/dist/index.js');
+          const directory = 'py/conformance/valid';
+          const expected = JSON.parse(fs.readFileSync('/tmp/python-canonical.json', 'utf8'));
+          const differences = [];
+          for (const name of fs.readdirSync(directory).sort()) {
+            if (!name.endsWith('.json')) continue;
+            const value = JSON.parse(fs.readFileSync(path.join(directory, name), 'utf8'));
+            // canonicalEnvelope returns a string here and bytes in Python;
+            // both encode the same UTF-8, which is what actually gets signed.
+            if (canonicalEnvelope(value) !== expected[name]) differences.push(name);
+          }
+          if (differences.length) {
+            console.error(`::error::canonicalisation differs for ${differences.join(', ')}`);
+            process.exit(1);
+          }
+          console.log(`${Object.keys(expected).length} envelopes canonicalise identically`);
+          JS
+
+      - name: A signature made in TypeScript verifies in Python
+        # This direction, not the reverse: the TypeScript SDK signs but does
+        # not verify, so Python is the only side that can check the other's
+        # work. It is the property that matters — an agent signs with one SDK
+        # and ACN Cloud verifies with the other.
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const { signEnvelope } = await import('./npm/dist/index.js');
+          const envelope = JSON.parse(
+            fs.readFileSync('py/conformance/valid/request-for-quote.json', 'utf8'),
+          );
+          delete envelope.signature;
+          const pair = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, [
+            'sign',
+            'verify',
+          ]);
+          const signed = await signEnvelope(envelope, pair.privateKey, 'key:compat:1');
+          const raw = new Uint8Array(await crypto.subtle.exportKey('raw', pair.publicKey));
+          const base64url = Buffer.from(raw)
+            .toString('base64')
+            .replaceAll('+', '-')
+            .replaceAll('/', '_')
+            .replace(/=+$/, '');
+          fs.writeFileSync('/tmp/signed.json', JSON.stringify(signed));
+          fs.writeFileSync('/tmp/public-key.txt', base64url);
+          console.log('signed an envelope with the TypeScript SDK');
+          JS
+          python - <<'PY'
+          import base64, json, pathlib
+          from acn_standard import verify_envelope_signature
+
+          signed = json.loads(pathlib.Path("/tmp/signed.json").read_text())
+          encoded = pathlib.Path("/tmp/public-key.txt").read_text().strip()
+          public_key = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
+          verify_envelope_signature(signed, public_key)
+          print("a TypeScript signature verifies under the Python SDK")
+          PY

@@ -1,0 +1,17 @@
+{
+  "name": "@agent-commerce-network/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for ACN 0.1 and its A2A 1.0 binding",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "engines": {"node": ">=20"},
+  "devDependencies": {"typescript": "5.9.2"},
+  "license": "Apache-2.0",
+  "publishConfig": {"access": "public"}
+}
