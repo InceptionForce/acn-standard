@@ -3,6 +3,8 @@ import importlib.util
 import tarfile
 import tempfile
 import unittest
+
+from acn_standard import __version__
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / "tools/build_release.py"
@@ -21,8 +23,8 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual(hashlib.sha256(archive.read_bytes()).hexdigest(), expected)
             with tarfile.open(archive) as bundle:
                 names = bundle.getnames()
-            self.assertIn("acn-standard-0.1.0/manifest.json", names)
-            self.assertIn("acn-standard-0.1.0/schema-catalog.json", names)
+            self.assertIn(f"acn-standard-{__version__}/manifest.json", names)
+            self.assertIn(f"acn-standard-{__version__}/schema-catalog.json", names)
 
 
 if __name__ == "__main__":
