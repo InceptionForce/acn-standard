@@ -10,7 +10,11 @@ dynamic = ["version"]
 description = "Reference contracts and conformance tools for Agent Commerce Network"
 requires-python = ">=3.11"
 license = "Apache-2.0"
-dependencies = ["cryptography>=44,<46"]
+# 50.0.0 is the floor that clears PYSEC-2026-3552; the earlier advisories in
+# this chain are fixed at 46.0.5 through 49.0.0, so anything below 50 leaves at
+# least one open. It is also what workforce already pins, so the monorepo and
+# the published package agree.
+dependencies = ["cryptography>=50,<51"]
 
 [project.scripts]
 acn-conformance = "acn_standard.cli:main"
