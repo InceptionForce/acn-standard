@@ -68,6 +68,10 @@ jobs:
           cache: npm
           cache-dependency-path: npm/package-lock.json
       - run: npm ci
+      # `prepack` builds before packing, so this is belt and braces — but the
+      # job failed exactly this way once, packing a tarball with no dist/ in it,
+      # and an explicit step is cheaper than rediscovering why.
+      - run: npm run build
 
       - name: The package publishes under ${{ env.NPM_SCOPE }}, publicly
         run: |
