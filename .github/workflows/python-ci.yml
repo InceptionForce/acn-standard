@@ -127,3 +127,49 @@ jobs:
       # yet, so auditing it is a lookup that cannot succeed and only adds a
       # skip line to the report.
       - run: pip-audit --skip-editable
+
+  publish:
+    # Only from main, only after the checks above, and only when the version in
+    # acn_standard.__version__ is one PyPI does not already have. PyPI versions
+    # are immutable: re-uploading the same one is a hard error, so without that
+    # check every merge after a release would fail on a step with nothing left
+    # to do.
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [test, package, audit]
+    runs-on: ubuntu-latest
+    environment: pypi-release
+    permissions:
+      contents: read
+      # Trusted Publishing: PyPI verifies this workflow's identity directly, so
+      # there is no long-lived upload token to leak or rotate.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.13", cache: pip}
+      - run: pip install -e . build
+
+      - name: Is this version already published?
+        id: check
+        run: |
+          version=$(python -c "import acn_standard; print(acn_standard.__version__)")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            "https://pypi.org/pypi/acn-standard/$version/json")
+          if [ "$code" = "200" ]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "acn-standard $version is already on PyPI; nothing to do"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "acn-standard $version is new"
+          fi
+
+      - name: Build the distribution
+        if: steps.check.outputs.published == 'false'
+        run: python -m build --outdir dist-pypi
+
+      - name: Publish to PyPI
+        if: steps.check.outputs.published == 'false'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist-pypi
