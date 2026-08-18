@@ -61,6 +61,8 @@ def build(output: Path) -> Path:
             "version": VERSION,
             "files": {str(path.relative_to(stage)): digest(path) for path in files},
         }
+
+        
         (stage / "manifest.json").write_text(
             json.dumps(manifest, indent=2, sort_keys=True) + "\n"
         )
