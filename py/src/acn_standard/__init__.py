@@ -63,4 +63,35 @@ __all__ = [
     "ACN_NETWORK_EXTENSION",
     "validate_network_extension",
 ]
-__version__ = "0.1.0"
+
+
+def schema_directory():
+    """Where the bundled JSON Schemas live.
+
+    The library validates envelopes in Python; these schemas state the same
+    contract in a form other languages can use. They travel with the code
+    because two descriptions of one contract, versioned separately, is how a
+    validator and a schema come to disagree about what is valid.
+    """
+    from importlib.resources import files
+
+    return files(__name__) / "schemas"
+
+
+def conformance_directory():
+    """Where the bundled conformance corpus lives.
+
+    Returns a path containing `valid/` and `invalid/`. Distributed with the
+    package so an implementer can check their envelopes against the same
+    fixtures this library is tested with, rather than a copy that has drifted:
+
+        from acn_standard import conformance_directory, validate_envelope
+        for path in (conformance_directory() / "valid").glob("*.json"):
+            validate_envelope(json.loads(path.read_text()))
+    """
+    from importlib.resources import files
+
+    return files(__name__) / "conformance"
+
+
+__version__ = "0.1.1"

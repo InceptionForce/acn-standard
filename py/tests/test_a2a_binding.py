@@ -3,6 +3,7 @@ from pathlib import Path
 import unittest
 
 from acn_standard import (
+    conformance_directory,
     ACN_A2A_EXTENSION,
     ACN_MEDIA_TYPE,
     ACN_RESULT_MEDIA_TYPE,
@@ -11,13 +12,12 @@ from acn_standard import (
     parse_a2a_message,
 )
 
+CORPUS = conformance_directory()
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def request_value():
-    envelope = json.loads(
-        (ROOT / "conformance/valid/request-for-quote.json").read_text()
-    )
+    envelope = json.loads((CORPUS / "valid/request-for-quote.json").read_text())
     return {
         "message": {
             "messageId": "a2a-input-001",

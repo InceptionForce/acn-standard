@@ -2,27 +2,28 @@ import json
 from pathlib import Path
 import unittest
 
-from acn_standard import ContractError, validate_envelope
+from acn_standard import ContractError, conformance_directory, validate_envelope
 
+CORPUS = conformance_directory()
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class ConformanceTests(unittest.TestCase):
     def test_valid_fixtures(self):
-        for path in sorted((ROOT / "conformance" / "valid").glob("*.json")):
+        for path in sorted((CORPUS / "valid").glob("*.json")):
             with self.subTest(path=path.name):
                 value = json.loads(path.read_text(encoding="utf-8"))
                 self.assertEqual(validate_envelope(value).to_wire(), value)
 
     def test_invalid_fixtures(self):
-        for path in sorted((ROOT / "conformance" / "invalid").glob("*.json")):
+        for path in sorted((CORPUS / "invalid").glob("*.json")):
             with self.subTest(path=path.name):
                 value = json.loads(path.read_text(encoding="utf-8"))
                 with self.assertRaises(ContractError):
                     validate_envelope(value)
 
     def test_network_extension_categories_and_reservation_evidence(self):
-        value = json.loads((ROOT / "conformance/valid/purchase-order.json").read_text())
+        value = json.loads((CORPUS / "valid/purchase-order.json").read_text())
         value["extensions"] = {
             "acn.network": {
                 "productCategories": ["office-supplies/paper"],
@@ -43,9 +44,7 @@ class ConformanceTests(unittest.TestCase):
             validate_envelope(value)
 
     def test_reservation_evidence_is_rejected_outside_purchase_order(self):
-        value = json.loads(
-            (ROOT / "conformance/valid/request-for-quote.json").read_text()
-        )
+        value = json.loads((CORPUS / "valid/request-for-quote.json").read_text())
         value["extensions"] = {
             "acn.network": {
                 "reservationEvidence": {
