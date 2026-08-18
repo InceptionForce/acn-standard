@@ -18,12 +18,12 @@ on:
       - "npm/**"
       - "pyproject.toml"
       - ".github/workflows/compatibility.yml"
-  pull_request:
-    paths:
-      - "py/**"
-      - "npm/**"
-      - "pyproject.toml"
-      - ".github/workflows/compatibility.yml"
+  # pull_request:
+  #   paths:
+  #     - "py/**"
+  #     - "npm/**"
+  #     - "pyproject.toml"
+  #     - ".github/workflows/compatibility.yml"
   workflow_dispatch:
 
 permissions:
