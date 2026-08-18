@@ -11,11 +11,11 @@ on:
       - "py/**"
       - "pyproject.toml"
       - ".github/workflows/python-ci.yml"
-  pull_request:
-    paths:
-      - "py/**"
-      - "pyproject.toml"
-      - ".github/workflows/python-ci.yml"
+  # pull_request:
+  #   paths:
+  #     - "py/**"
+  #     - "pyproject.toml"
+  #     - ".github/workflows/python-ci.yml"
   workflow_dispatch:
 
 permissions:

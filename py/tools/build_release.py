@@ -43,7 +43,10 @@ def build(output: Path) -> Path:
         # The corpus now ships inside the package; the archive takes it from
         # there so the two can never disagree about what conforms.
         package = PROJECT / "src" / "acn_standard"
-        extras = {"conformance": package / "conformance", "schemas": package / "schemas"}
+        extras = {
+            "conformance": package / "conformance",
+            "schemas": package / "schemas",
+        }
         for item in (*INCLUDED, *extras):
             source = extras.get(item) or PROJECT / item
             if not source.exists():
