@@ -1,0 +1,191 @@
+name: npm SDK
+
+# The @agent-commerce-network/sdk package under npm/. Scoped by path so a
+# change to the Python SDK does not re-run this, and vice versa — the two are
+# published separately and their pipelines should be able to fail separately.
+
+on:
+  push:
+    branches: ["main", "dev"]
+    paths:
+      - "npm/**"
+      - ".github/workflows/npm-ci.yml"
+  pull_request:
+    paths:
+      - "npm/**"
+      - ".github/workflows/npm-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The scope this package publishes under. Asserted rather than assumed:
+  # renaming away from it would silently publish somewhere else, and an
+  # unscoped name would land in the public root namespace.
+  NPM_SCOPE: "@agent-commerce-network"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # package.json declares engines.node >=20.
+        node-version: ["20", "22"]
+    defaults:
+      run:
+        working-directory: npm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          registry-url: https://registry.npmjs.org
+          scope: ${{ env.NPM_SCOPE }}
+          cache: npm
+          cache-dependency-path: npm/package-lock.json
+
+      - run: npm ci
+      - run: npm test
+
+  package:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: npm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: https://registry.npmjs.org
+          scope: ${{ env.NPM_SCOPE }}
+          cache: npm
+          cache-dependency-path: npm/package-lock.json
+      - run: npm ci
+
+      - name: The package publishes under ${{ env.NPM_SCOPE }}, publicly
+        run: |
+          node - <<'JS'
+          const manifest = require('./package.json');
+          const scope = process.env.NPM_SCOPE;
+          const problems = [];
+          if (!manifest.name.startsWith(`${scope}/`)) {
+            problems.push(`name is ${manifest.name}, not under ${scope}`);
+          }
+          // A scoped package is private by default; npm refuses the publish
+          // without this rather than publishing it closed, but the failure
+          // arrives at upload time and this says so earlier.
+          if (manifest.publishConfig?.access !== 'public') {
+            problems.push('publishConfig.access is not "public"');
+          }
+          if (problems.length) {
+            console.error(`::error::${problems.join('; ')}`);
+            process.exit(1);
+          }
+          console.log(`${manifest.name} ${manifest.version} publishes publicly`);
+          JS
+
+      - name: The package carries its build output
+        run: |
+          npm pack --dry-run --json > /tmp/pack.json
+          node - <<'JS'
+          const [pack] = require('/tmp/pack.json');
+          const files = pack.files.map((file) => file.path);
+          // package.json lists dist/ in `files`, but nothing otherwise checks
+          // that the build ran before packing — an empty package publishes
+          // perfectly happily.
+          const missing = ['dist/index.js', 'dist/index.d.ts'].filter(
+            (name) => !files.includes(name),
+          );
+          if (missing.length) {
+            console.error(`::error::the package is missing ${missing.join(', ')}`);
+            process.exit(1);
+          }
+          console.log(`${pack.name} ${pack.version}: ${files.length} files`);
+          JS
+
+      - name: It installs and imports for someone who is not us
+        run: |
+          npm pack --pack-destination /tmp
+          mkdir -p /tmp/consumer && cd /tmp/consumer
+          npm init -y > /dev/null
+          npm install --silent /tmp/agent-commerce-network-sdk-*.tgz
+          node --input-type=module -e "
+          import { canonicalEnvelope, buildEnvelope } from '@agent-commerce-network/sdk';
+          if (typeof canonicalEnvelope !== 'function') throw new Error('missing export');
+          console.log('installed from the tarball and the public API imports');
+          "
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-package-${{ github.sha }}
+          path: /tmp/*.tgz
+
+  audit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: npm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: npm/package-lock.json
+      - run: npm ci
+      - run: npm audit --audit-level=high
+
+  publish:
+    # Only from main, only after the checks above, and only when the version in
+    # package.json is one npm does not already have. npm versions are immutable:
+    # republishing the same one is a hard error, so without that check every
+    # merge after a release would fail on a step that had nothing left to do.
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [test, package, audit]
+    runs-on: ubuntu-latest
+    environment: npm-release
+    permissions:
+      contents: read
+      # Lets npm record where the package was built, so a consumer can check it
+      # came from this repository rather than from someone's laptop.
+      id-token: write
+    defaults:
+      run:
+        working-directory: npm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: https://registry.npmjs.org
+          scope: ${{ env.NPM_SCOPE }}
+          cache: npm
+          cache-dependency-path: npm/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+      - name: Is this version already published?
+        id: check
+        run: |
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          if npm view "$name@$version" version > /dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "$name@$version is already on npm; nothing to do"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "$name@$version is new"
+          fi
+
+      - name: Publish
+        if: steps.check.outputs.published == 'false'
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

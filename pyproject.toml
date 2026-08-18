@@ -18,5 +18,10 @@ acn-conformance = "acn_standard.cli:main"
 [tool.setuptools.dynamic]
 version = {attr = "acn_standard.__version__"}
 
+# The Python project lives under py/ now that the npm SDK shares this
+# repository, so setuptools has to be told where the package actually is.
+[tool.setuptools]
+package-dir = {"" = "py/src"}
+
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["py/src"]
