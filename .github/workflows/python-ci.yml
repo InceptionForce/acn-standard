@@ -40,7 +40,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-      - run: pip install -e . black
+      - run: pip install -e '.[test]' black
 
       - name: Formatting
         run: black --check py/src py/tests py/tools
@@ -50,13 +50,13 @@ jobs:
 
       - name: Conformance corpus and schemas are valid JSON
         run: |
-          find py/conformance py/schemas -name '*.json' \
+          find py/src/acn_standard/conformance py/src/acn_standard/schemas -name '*.json' \
             -exec python -m json.tool '{}' /dev/null ';'
 
       - name: The CLI a consumer gets is runnable
         run: |
-          acn-conformance suite py/conformance/valid
-          acn-conformance validate py/conformance/valid/request-for-quote.json
+          acn-conformance suite py/src/acn_standard/conformance/valid
+          acn-conformance validate py/src/acn_standard/conformance/valid/request-for-quote.json
 
   package:
     runs-on: ubuntu-latest

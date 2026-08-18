@@ -59,7 +59,7 @@ jobs:
           from acn_standard.security import canonical_envelope
           canonical = {
               path.name: canonical_envelope(json.loads(path.read_text())).decode()
-              for path in sorted(pathlib.Path("py/conformance/valid").glob("*.json"))
+              for path in sorted(pathlib.Path("py/src/acn_standard/conformance/valid").glob("*.json"))
           }
           assert canonical, "the conformance corpus is empty"
           pathlib.Path("/tmp/python-canonical.json").write_text(json.dumps(canonical))
@@ -72,7 +72,7 @@ jobs:
           import fs from 'node:fs';
           import path from 'node:path';
           const { canonicalEnvelope } = await import('./npm/dist/index.js');
-          const directory = 'py/conformance/valid';
+          const directory = 'py/src/acn_standard/conformance/valid';
           const expected = JSON.parse(fs.readFileSync('/tmp/python-canonical.json', 'utf8'));
           const differences = [];
           for (const name of fs.readdirSync(directory).sort()) {
@@ -99,7 +99,7 @@ jobs:
           import fs from 'node:fs';
           const { signEnvelope } = await import('./npm/dist/index.js');
           const envelope = JSON.parse(
-            fs.readFileSync('py/conformance/valid/request-for-quote.json', 'utf8'),
+            fs.readFileSync('py/src/acn_standard/conformance/valid/request-for-quote.json', 'utf8'),
           );
           delete envelope.signature;
           const pair = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, [

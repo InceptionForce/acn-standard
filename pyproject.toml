@@ -27,5 +27,23 @@ version = {attr = "acn_standard.__version__"}
 [tool.setuptools]
 package-dir = {"" = "py/src"}
 
+# The conformance corpus travels with the library. It is the reference
+# definition of a well-formed envelope, so anyone implementing an agent — or a
+# service verifying one — needs it as much as they need the code, and a corpus
+# fetched separately is a corpus that drifts.
+[project.optional-dependencies]
+# Validating the corpus against the JSON Schemas, which is how the schemas and
+# the Python validator are kept from drifting apart. Not needed at runtime —
+# the library validates in Python.
+test = ["jsonschema>=4.23,<5"]
+
+[tool.setuptools.package-data]
+acn_standard = [
+    "conformance/valid/*.json",
+    "conformance/invalid/*.json",
+    "schemas/*.json",
+    "schemas/*/*.json",
+]
+
 [tool.setuptools.packages.find]
 where = ["py/src"]

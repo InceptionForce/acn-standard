@@ -20,9 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from acn_standard import __version__ as VERSION  # noqa: E402
 
 INCLUDED = (
-    "schemas",
     "specification",
-    "conformance",
     "README.md",
     "GOVERNANCE.md",
     "SECURITY.md",
@@ -42,8 +40,12 @@ def build(output: Path) -> Path:
     archive = output / f"acn-standard-{VERSION}.tar.gz"
     with tempfile.TemporaryDirectory() as temporary:
         stage = Path(temporary) / f"acn-standard-{VERSION}"
-        for item in INCLUDED:
-            source = PROJECT / item
+        # The corpus now ships inside the package; the archive takes it from
+        # there so the two can never disagree about what conforms.
+        package = PROJECT / "src" / "acn_standard"
+        extras = {"conformance": package / "conformance", "schemas": package / "schemas"}
+        for item in (*INCLUDED, *extras):
+            source = extras.get(item) or PROJECT / item
             if not source.exists():
                 source = REPO / item
             if not source.exists():
